@@ -2,7 +2,7 @@
 #pragma optimize gas
 #pragma evm-version shanghai
 """
-@title Curve Degen Leverage Bot Factory
+@title Curve Healthy Juice Degen Bot Factory
 @license Apache 2.0
 @author Volume.finance
 """
@@ -18,11 +18,13 @@ struct BotInfo:
     depositor: address
     collateral: address
     amount: uint256
+    settlement: address
     debt: uint256
     N: uint256
     leverage: uint256
     deleverage_percentage: uint256
     health_threshold: uint256
+    health_threshold_upper: uint256
     expire: uint256
     remaining_count: uint256
     interval: uint256
@@ -62,11 +64,13 @@ event BotStarted:
     bot: address
     collateral: address
     collateral_amount: uint256
+    settlement: address
     debt: uint256
     N: uint256
     leverage: uint256
     deleverage_percentage: uint256
     health_threshold: uint256
+    health_threshold_upper: uint256
     expire: uint256
     callbacker: address
     callback_args: DynArray[uint256, 5]
@@ -145,7 +149,7 @@ def __init__(_blueprint: address, _compass: address, controller_factory: address
 @external
 @payable
 @nonreentrant('lock')
-def create_bot(swap_infos: DynArray[SwapInfo, MAX_SIZE], collateral: address, debt: uint256, N: uint256, callbacker: address, callback_args: DynArray[uint256,5], leverage: uint256, deleverage_percentage: uint256, health_threshold: uint256, expire: uint256, number_trades: uint256, interval: uint256):
+def create_bot(swap_infos: DynArray[SwapInfo, MAX_SIZE], collateral: address, settlement: address, debt: uint256, N: uint256, callbacker: address, callback_args: DynArray[uint256,5], leverage: uint256, deleverage_percentage: uint256, health_threshold: uint256, health_threshold_upper: uint256, expire: uint256, number_trades: uint256, interval: uint256):
     _gas_fee: uint256 = self.gas_fee * number_trades
     _service_fee: uint256 = self.service_fee
     controller: address = ControllerFactory(CONTROLLER_FACTORY).get_controller(collateral)
@@ -204,21 +208,23 @@ def create_bot(swap_infos: DynArray[SwapInfo, MAX_SIZE], collateral: address, de
             depositor: msg.sender,
             collateral: collateral,
             amount: unsafe_div(collateral_amount, number_trades),
+            settlement: settlement,
             debt: debt,
             N: N,
             leverage: leverage,
             deleverage_percentage: deleverage_percentage,
             health_threshold: health_threshold,
+            health_threshold_upper: health_threshold_upper,
             expire: expire,
             remaining_count: unsafe_sub(number_trades, 1),
             interval: interval
         })
     else:
         assert number_trades == 1, "Wrong number trades"
-    self._create_bot(_deposit_id, msg.sender, collateral, unsafe_div(collateral_amount, number_trades), debt, N, callbacker, callback_args, leverage, deleverage_percentage, health_threshold, expire, number_trades, interval)
+    self._create_bot(_deposit_id, msg.sender, collateral, unsafe_div(collateral_amount, number_trades), settlement, debt, N, callbacker, callback_args, leverage, deleverage_percentage, health_threshold, health_threshold_upper, expire, number_trades, interval)
 
 @internal
-def _create_bot(deposit_id: uint256, depositor: address, collateral: address, amount: uint256, debt: uint256, N: uint256, callbacker: address, callback_args: DynArray[uint256,5], leverage: uint256, deleverage_percentage: uint256, health_threshold: uint256, expire: uint256, remaining_count: uint256, interval: uint256):
+def _create_bot(deposit_id: uint256, depositor: address, collateral: address, amount: uint256, settlement: address, debt: uint256, N: uint256, callbacker: address, callback_args: DynArray[uint256,5], leverage: uint256, deleverage_percentage: uint256, health_threshold: uint256, health_threshold_upper: uint256, expire: uint256, remaining_count: uint256, interval: uint256):
     _service_fee: uint256 = self.service_fee
     controller: address = ControllerFactory(CONTROLLER_FACTORY).get_controller(collateral)
     bot: address = empty(address)
@@ -230,14 +236,14 @@ def _create_bot(deposit_id: uint256, depositor: address, collateral: address, am
             assert ERC20(collateral).transfer(bot, amount, default_return_value=True), "Tr fail"
         Bot(bot).create_loan_extended(amount, debt, N, callbacker, callback_args)
         self.bot_to_owner[bot] = depositor
-        log BotStarted(deposit_id, depositor, bot, collateral, amount, debt, N, leverage, deleverage_percentage, health_threshold, expire, callbacker, callback_args, remaining_count, interval)
+        log BotStarted(deposit_id, depositor, bot, collateral, amount, settlement, debt, N, leverage, deleverage_percentage, health_threshold, health_threshold_upper, expire, callbacker, callback_args, remaining_count, interval)
 
 @external
 def create_next_bot(deposit_id: uint256, callbacker: address, callback_args: DynArray[uint256,5], remaining_count: uint256):
     assert msg.sender == self.compass and convert(slice(msg.data, unsafe_sub(len(msg.data), 32), 32), bytes32) == self.paloma, "Unauthorized"
     _bot_info: BotInfo = self.bot_info[deposit_id]
     assert _bot_info.remaining_count == remaining_count and remaining_count > 0, "Wrong count"
-    self._create_bot(deposit_id, _bot_info.depositor, _bot_info.collateral, _bot_info.amount, _bot_info.debt, _bot_info.N, callbacker, callback_args, _bot_info.leverage, _bot_info.deleverage_percentage, _bot_info.health_threshold, _bot_info.expire, remaining_count, _bot_info.interval)
+    self._create_bot(deposit_id, _bot_info.depositor, _bot_info.collateral, _bot_info.amount, _bot_info.settlement, _bot_info.debt, _bot_info.N, callbacker, callback_args, _bot_info.leverage, _bot_info.deleverage_percentage, _bot_info.health_threshold, _bot_info.health_threshold_upper, _bot_info.expire, remaining_count, _bot_info.interval)
     self.bot_info[deposit_id].remaining_count = unsafe_sub(remaining_count, 1)
 
 @external

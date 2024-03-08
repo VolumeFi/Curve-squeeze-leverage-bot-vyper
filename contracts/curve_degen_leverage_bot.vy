@@ -2,7 +2,7 @@
 #pragma optimize gas
 #pragma evm-version shanghai
 """
-@title Curve Degen Leverage Bot
+@title Curve Healthy Juice Degen Bot
 @license Apache 2.0
 @author Volume.finance
 """
