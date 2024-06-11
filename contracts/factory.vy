@@ -290,9 +290,10 @@ def repay_bot(bots: DynArray[address, MAX_SIZE], callbackers: DynArray[address, 
             if i >= len(bots):
                 break
             bal: uint256 = Bot(bots[i]).repay_extended(callbackers[i], callback_args[i])
-            ERC20(STABLECOIN).approve(ROUTER, bal)
             owner: address = self.bot_to_owner[bots[i]]
-            bal = CurveSwapRouter(ROUTER).exchange(swap_infos[i].route, swap_infos[i].swap_params, bal, swap_infos[i].expected, swap_infos[i].pools, owner)
+            if bal > 0:
+                ERC20(STABLECOIN).approve(ROUTER, bal)
+                bal = CurveSwapRouter(ROUTER).exchange(swap_infos[i].route, swap_infos[i].swap_params, bal, swap_infos[i].expected, swap_infos[i].pools, owner)
             log BotRepayed(owner, bots[i], bal)
     else:
         for i in range(MAX_SIZE):
@@ -301,8 +302,9 @@ def repay_bot(bots: DynArray[address, MAX_SIZE], callbackers: DynArray[address, 
             owner: address = self.bot_to_owner[bots[i]]
             assert owner == msg.sender, "Unauthorized"
             bal: uint256 = Bot(bots[i]).repay_extended(callbackers[i], callback_args[i])
-            ERC20(STABLECOIN).approve(ROUTER, bal)
-            bal = CurveSwapRouter(ROUTER).exchange(swap_infos[i].route, swap_infos[i].swap_params, bal, swap_infos[i].expected, swap_infos[i].pools, owner)
+            if bal > 0:
+                ERC20(STABLECOIN).approve(ROUTER, bal)
+                bal = CurveSwapRouter(ROUTER).exchange(swap_infos[i].route, swap_infos[i].swap_params, bal, swap_infos[i].expected, swap_infos[i].pools, owner)
             log BotRepayed(owner, bots[i], bal)
 
 @external

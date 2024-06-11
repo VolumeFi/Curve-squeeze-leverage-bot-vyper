@@ -1,4 +1,4 @@
-# Curve Degen Leverage Bot
+# Curve Squeeze Bot
 
 This project implements a smart contract system for a Curve Leverage Lending Bot, designed to interact with Curve Finance's liquidity pools. It includes various functionalities such as creating and repaying loans, querying the state and health of loans, and managing operational settings. The contracts are written in Vyper.
 
